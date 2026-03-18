@@ -1,0 +1,431 @@
+<?php 
+
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
+
+require '../authentication.php'; 
+require '../conn.php';
+include './include/login_header.php';
+
+
+$user_id = $_SESSION['admin_id'];
+$user_name = $_SESSION['name'];
+$security_key = $_SESSION['security_key'];
+if ($user_id == NULL || $security_key == NULL) {
+    header('Location: ../index.php');
+    exit; 
+}
+
+
+
+
+$user_role = $_SESSION['user_role'];
+
+include './include/sidebar.php';
+
+if (isset($_GET['finance_id'])) {
+    $finance_id = $_GET['finance_id'];
+
+   
+    $sql_move = "INSERT INTO csa_finance_readytobeinvoiced (project_id, price, comments, invoice_number, rownumber)
+                 SELECT project_id, amount, comments, invoice_number, rownumber
+                 FROM csa_finance_invoiced 
+                 WHERE finance_id = ?";
+
+    $stmt_move = $conn->prepare($sql_move);
+    $stmt_move->bind_param("i", $finance_id);
+
+    if ($stmt_move->execute()) {
+    
+        $sql_delete = "DELETE FROM csa_finance_invoiced WHERE finance_id = ?";
+        $stmt_delete = $conn->prepare($sql_delete);
+        $stmt_delete->bind_param("i", $finance_id);
+
+        if ($stmt_delete->execute()) {
+       
+            $msg_error = "Project sent back successfully";
+            header('Location:' . $_SERVER['HTTP_REFERER']);
+            exit; 
+        } else {
+     
+            $msg_error = "Error deleting the project: " . $conn->error;
+        }
+    } else {
+     
+        $msg_error = "Error moving the project: " . $conn->error;
+    }
+}
+
+
+$buttonText = "";
+$qbButtonDisabled = false;
+$buttonClass = "";
+$authLink = "";
+
+
+if (!function_exists('fetchapi')) {
+    function fetchapi($url) {
+        try {
+            $newSession = curl_init();
+            curl_setopt($newSession, CURLOPT_URL, $url);
+            curl_setopt($newSession, CURLOPT_RETURNTRANSFER, true);
+            $response = curl_exec($newSession);
+            if (curl_errno($newSession)) {
+                throw new Exception;
+               
+            }
+            curl_close($newSession);
+            return json_decode($response, true);
+        } catch (Exception $e) {
+            echo 'Error: ' . $e->getMessage();
+            return null;
+        }
+    }
+}
+
+
+
+$connectedToQB = false;
+
+
+$url = "https://quickbooks.csaappstore.com/invoices/"; 
+$result = fetchapi($url);
+
+if (!$result) {
+    $buttonText = "Sign in to connect to QuickBooks";
+    $buttonClass = "btn btn-danger";
+    $authLink = "https://quickbooks.csaappstore.com/auth/";
+    
+
+
+
+
+
+
+
+
+}
+
+
+
+else if ($result) {
+    $buttonText = "Connected to QuickBooks";
+    $qbButtonDisabled = true;
+    $authLink = "#";
+    $buttonClass = "btn btn-success";
+    $connectedToQB = true;
+
+
+
+
+
+foreach ($result as $entry) {
+    $docNumber = $entry['DocNumber']; 
+    $totalAmount = $entry['TotalAmt'];
+    $balance = $entry['Balance'];
+
+  
+    $sqlCheck = "SELECT total_amount, balance FROM quickbooks_api_data WHERE doc_number = ?";
+    $stmtCheck = $conn->prepare($sqlCheck);
+    $stmtCheck->bind_param("i", $docNumber);
+    $stmtCheck->execute();
+    $stmtCheck->store_result();
+    
+    if ($stmtCheck->num_rows > 0) {
+     
+        $stmtCheck->bind_result($dbAmount, $dbBalance);
+        $stmtCheck->fetch();
+        
+        if ($dbAmount != $totalAmount || $dbBalance != $balance) { 
+        
+            $sqlUpdate = "UPDATE quickbooks_api_data SET total_amount = ?, balance = ? WHERE doc_number = ?";
+            $stmtUpdate = $conn->prepare($sqlUpdate);
+            
+            // Bind totalAmount and balance as strings, docNumber as integer
+            $stmtUpdate->bind_param("ssi", $totalAmount, $balance, $docNumber);
+            
+            if ($stmtUpdate->execute()) {
+                echo "";
+            } else {
+                echo "Error updating record for {$docNumber}: " . $stmtUpdate->error . "<br>";
+            }
+            $stmtUpdate->close();
+        
+            
+        }
+    } else {
+     
+        $sqlInsert = "INSERT INTO quickbooks_api_data (doc_number, total_amount, balance) VALUES (?, ?, ?)";
+        $stmtInsert = $conn->prepare($sqlInsert);
+        $stmtInsert->bind_param("iss", $docNumber, $totalAmount, $balance); 
+        if ($stmtInsert->execute()) {
+            echo "";
+        } else {
+            echo "Error inserting record for {$docNumber}: " . $stmtInsert->error . "<br>";
+        }
+        $stmtInsert->close();
+    }
+
+    $stmtCheck->close(); 
+}
+
+  
+
+
+
+
+
+
+$conn->close();
+
+
+
+
+ }
+
+
+
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+?>
+
+
+
+<div class="container-fluid">
+    <div class="d-sm-flex align-items-center justify-content-between mb-4">
+        <h1 class="h3 mb-0 text-gray-800">Invoiced</h1>
+    </div>
+
+    <div class="card shadow mb-4">
+        <div class="card-header py-3 d-flex w-100 justify-content-between">
+            <h6 class="m-0 font-weight-bold text-primary">Invoiced Tab</h6>
+            <?php echo  "<a href='$authLink' > <div class='$buttonClass' $qbButtonDisabled>  $buttonText </div> </a>" ; ?>
+
+           
+
+           
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+               <p class= "text-danger"> <?php  if (!$connectedToQB) {
+                    echo "Please sign in to QuickBooks to import Invoice data.";
+                }  ?> </p>
+                <table class="table table-bordered" id="dataTable" width="100%" cellspacing="0">
+                    <thead>
+                        <tr class="text-success text-center">
+                            <th>Invoiced Month</th>
+                            <th>Project Number</th>
+                            <th>Project Title</th>
+                            <th>Team</th>
+                            <th>Invoice No</th>
+                            <th>Comments</th>
+                            <th>Amount</th>
+                            <th>Balance</th>
+                            <th>Payment Status</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tfoot>
+                        <tr class="text-success text-center">
+                            <th>Invoiced Month</th>
+                            <th>Project Number</th>
+                            <th>Project Title</th>
+                            <th>Team</th>
+                            <th>Invoice No</th>
+                            <th>Comments</th>
+                            <th>Amount</th>
+                            <th>Balance</th>
+                            <th>Payment Status</th>
+                            <th>Action</th>
+                        </tr>
+                    </tfoot>
+                    <tbody>
+                        <?php
+                         
+                        $sql = "SELECT *,
+                               (SELECT MAX(rownumber)
+                                FROM csa_finance_invoiced AS inner_table
+                               
+                                WHERE inner_table.project_id = csa_finance_invoiced.project_id) AS last_rownumber
+                        FROM csa_finance_invoiced
+                         LEFT JOIN quickbooks_api_data AS qad ON qad.doc_number = csa_finance_invoiced.invoice_number" ;
+
+                //         $sql = "SELECT *,
+                //         (SELECT MAX(rownumber)
+                //          FROM csa_finance_invoiced AS inner_table
+                        
+                //          WHERE inner_table.project_id = csa_finance_invoiced.project_id) AS last_rownumber
+                //  FROM csa_finance_invoiced" ;
+                 
+                        
+                        $info = $obj_admin->manage_all_info($sql);
+                        $num_row = $info->rowCount();
+
+                        if ($num_row == 0) {
+                            echo '<tr><td colspan="10">No projects were found</td></tr>';
+                        }
+
+                        while ($row = $info->fetch(PDO::FETCH_ASSOC)) {
+
+                            
+
+                       
+                        
+
+                                
+                                      
+                                        ?>
+                                        <tr>
+                                            <td><?php echo $row['month']; ?></td>
+                                            <td><?php echo !empty($row['revision_project_id']) ? $row['revision_project_id'] . ' (Revision Project)' : $row['project_id']; ?></td>
+                                            <td><?php echo $row['project_title']; ?></td>
+                                            <td><?php echo $row['p_team']; ?></td>
+                                            <td><?php echo $row['invoice_number']; ?></td>
+                                            <td><?php echo $row['comments']; ?></td>
+                                            <td><?php
+                                            if (!$connectedToQB) {
+                                                echo null ;
+                                            } else {
+                                                
+                                                if (!$row['doc_number']) {
+                                                    echo "<p class='text-danger'>Invoice numbers do not match. Please check the invoice number you have entered.<p>";
+                                                }
+                                                
+                                                
+                                               else {
+                                                echo  $row['total_amount'];
+                                               } 
+                                               
+                                            }
+                                           ?> </td>
+
+
+
+
+                                            <td><?php 
+                                             if (!$connectedToQB) {
+                                                echo null;
+                                             } else {
+                                                if (!$row['doc_number']) {
+                                                    echo "<p class='text-danger'>Invoice numbers do not match. Please check the invoice number you have entered.<p>";
+                                                }
+                                                
+                                                
+                                               else {
+                                                echo  $row['balance'];
+                                               } 
+                                             }
+                                             
+                                             ?></td>
+
+                                            
+                                          
+                                         
+
+
+
+                                            
+<td><?php 
+
+if (!$connectedToQB) {
+    echo null;
+} else {
+    
+if (!$row['doc_number']) {
+    echo "<p class='text-danger'>Invoice numbers do not match. Please check the invoice number you have entered.<p>";
+}
+
+
+else {
+    
+$paymentStatus = '';
+$paymentStatusClass = '';
+
+if ($row['balance'] == 0) {
+    $paymentStatus = "Paid";
+    $paymentStatusClass = "badge badge-success";
+} else if ($row['total_amount'] > $row['balance']) {
+    $paymentStatus = "Partially Paid";
+    $paymentStatusClass = "badge badge-warning";
+} else if ($row['total_amount'] == $row['balance']) {
+    $paymentStatus = "Not Paid";
+    $paymentStatusClass = "badge badge-danger";
+} else {
+    $paymentStatus = "Overpaid";
+    $paymentStatusClass = "badge badge-info";
+}   
+
+
+echo "<h3 class = '$paymentStatusClass'> $paymentStatus </h3>";
+
+} 
+
+
+}
+
+
+
+
+
+
+                                            
+                                            
+                                            
+                                            // echo $row['doc_number'];
+
+
+
+                                        
+                                            
+                                            
+                                            
+                                            ?> </td>
+                                            <td style="text-align: center; width:200px">
+                                                <a title="SEND BACK" class="ml-2 " href="?finance_id=<?php echo $row['finance_id']; ?>" onclick="return confirm('Are you sure you want to send back this project? This will send back all data related to this project.');">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-skip-backward-fill" viewBox="0 0 16 16">
+                                                        <path d="M.5 3.5A.5.5 0 0 0 0 4v8a.5.5 0 0 0 1 0V8.753l6.267 3.636c.54.313 1.233-.066 1.233-.697v-2.94l6.267 3.636c.54.314 1.233-.065 1.233-.696V4.308c0-.63-.693-1.01-1.233-.696L8.5 7.248v-2.94c0-.63-.692-1.01-1.233-.696L1 7.248V4a.5.5 0 0 0-.5-.5" />
+                                                    </svg>
+                                                </a>
+                                                <a title="View" class="ml-2" href="./task-details.php?project_id=<?php echo $row['project_id']; ?>">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-view-list" viewBox="0 0 16 16">
+                                                        <path d="M3 4.5h10a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2zm0 1a1 1 0 0 0-1 1v3a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1v-3a1 1 0 0 0-1-1H3z" />
+                                                        <path d="M4 3h8a1 1 0 0 1 1 1v1H3V4a1 1 0 0 1 1-1zm9 2V4a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v1h10zM4 9h8a1 1 0 0 1 1 1v1H3v-1a1 1 0 0 1 1-1zm9 2v1a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-1h10zM4 5h8a1 1 0 0 1 1 1v1H3V6a1 1 0 0 1 1-1z" />
+                                                    </svg>
+                                                </a>
+                                            </td>
+                                        </tr>
+                                        <?php
+                                    }
+                        
+                        ?>
+                        
+                      
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+<?php include './include/footer.php'; ?>
+
+
+

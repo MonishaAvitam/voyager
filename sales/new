@@ -1,0 +1,439 @@
+<?php
+
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
+
+require '../authentication.php'; // admin authentication check 
+require '../conn.php';
+include './include/login_header.php';
+include './include/sidebar.php';
+
+
+// auth check
+$user_id = $_SESSION['admin_id'];
+$user_name = $_SESSION['name'];
+$security_key = $_SESSION['security_key'];
+if ($user_id == NULL || $security_key == NULL) {
+    header('Location: index.php');
+    exit();
+}
+
+// check admin
+$user_role = $_SESSION['user_role'];
+
+?>
+
+
+
+<!DOCTYPE html>
+<html lang="en">
+
+
+
+<style>
+    .fixedheader {
+        position: sticky;
+        z-index: 1;
+        top: -0.2rem;
+        background: lightgray;
+        font-weight: bold;
+        font-size: 1rem;
+        color: black;
+    }
+
+    .table-container {
+        max-height: 95vh;
+        overflow-y: auto;
+    }
+
+    .table-container::-webkit-scrollbar {
+        display: none;
+    }
+
+
+    .quotation-btn {
+        height: 1.6rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 4px;
+        color: green;
+        border: 1.5px solid green;
+        transition: 0.3s ease-out;
+    }
+
+  
+
+    .quotation-btn:hover {
+        background: green;
+        transform: scale(1.2);
+
+        color: white;
+    }
+
+    .save-btn:hover {
+        background: #0d6efd;
+        transform: scale(1.2);
+
+        color: white;
+    }
+
+    .save-btn {
+        height: 1.6rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 4px;
+        color: #0d6efd;
+        border: 1.5px solid #0d6efd;
+        transition: 0.3s ease-out;
+    }
+
+    .comments-form {
+        height: 1.8rem;
+        width: 13rem;
+        outline: none;
+        border: 1px solid gainsboro;
+        padding-left: 0.35rem;
+    }
+
+    .comments-form:hover {
+       
+        border: 1px solid slategray;
+    }
+    .view-btn {
+        height: 1.6rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 4px;
+        transition: 0.3s ease-out;
+        color: slategray;
+        border: 1.5px solid slategray;
+    }
+    .view-btn:hover {
+        background: slategray;
+        transform: scale(1.2);
+        color: white;
+    }
+
+    .custom-input-size {
+        width: 65%
+    }
+    #view-modal textarea {
+        height: 5rem;
+    }
+
+</style>
+
+
+<!-- <input type="text" class="customSearchInput" placeholder="Search..." id="customSearchInput" /> -->
+
+<div class=" mx-auto" style="width: 97.5%">
+
+    <div class="d-sm-flex align-items-center justify-content-between mb-1">
+        <h3 class="">Project Enquiry</h3>
+
+    </div>
+</div>
+
+
+<div class="table-container mx-auto" style="max-height: 100vh; overflow-y: auto; width: 98%; ">
+    <table class="table text-center table-sm" id="customer-table">
+        <!-- <thead class=" bg-gradient" style="background: teal; font-weight: bold; letter-spacing: 0.03rem; font-size: 1.3rem;"> -->
+        <thead class="fixedheader" style="" class="">
+        <tr class="text-light align-middle font-weight-normal text-center fixedheader" style="height: 3.5rem; ">
+
+        <th width="3%" class="fixedheader align-middle font-weight-normal text-center">
+        Q Id </th>
+                
+                <th width="" class="fixedheader align-middle font-weight-normal text-center">
+                    Company Name </th>
+                    <th width="7%" class="fixedheader align-middle font-weight-normal text-center">
+                    Contact Person</th>
+
+
+                    <th width="5%" class="fixedheader align-middle font-weight-normal text-center">
+                    Client Id</th>
+
+                    <th width="5%%" class="fixedheader align-middle font-weight-normal text-center">
+                    Phone</th>
+
+                <th width="15%" class="fixedheader align-middle font-weight-normal text-center">
+                    Project Name</th>
+                    <th width="8%" style="padding-right: 1.8rem;"
+                    class="fixedheader align-middle font-weight-normal text-left">
+                     Enquiry Date</th>
+                     <!-- <th width="8%" style="padding-right: 1.8rem;"
+                    class="fixedheader align-middle font-weight-normal text-left">
+                     Enquiry Details</th> -->
+                
+                    <th width="9%" style="padding-right: 1.8rem;"
+                    class="fixedheader align-middle font-weight-normal text-left">
+                    Last Updated</th>
+
+
+                    <th width="15%%" style="padding-right: 1.8rem;"
+                    class="fixedheader align-middle font-weight-normal text-left">
+                    Comments</th>
+
+                    <th width="17%" style="padding-right: 1.8rem;"
+                    class="fixedheader align-middle font-weight-normal text-left">
+                    Actions</th>
+            </tr>
+
+
+        </thead>
+        <tbody style="background: rgb(245, 245, 245) ;">
+
+        </tbody>
+    </table>
+</div>
+
+
+
+
+
+<div class="modal fade" id="quotation_sent_modal" tabindex="-1" aria-labelledby="exampleModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="exampleModalLabel">Quotation Details</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+      <form>
+          <div class="mb-3">
+            <label for="recipient-name" class="col-form-label">Quotation Sent Date:</label>
+            <input type="date" class="form-control" id="recipient-name">
+          </div>
+          <div class="mb-3">
+            <label for="recipient-name" class="col-form-label">Amount:</label>
+            <input type="text" class="form-control" id="recipient-name">
+          </div>
+          <div class="mb-3">
+            <label for="message-text" class="col-form-label">Engineer Name:</label>
+            <select class="form-control"> 
+            <option>Engineer</option>
+            <option>Revanth</option>
+            <option>Chandru</option>
+            <option>George</option>
+
+            </select>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary bg-gradient btn-sm" data-bs-dismiss="modal">Close</button>
+        <button type="button" class="btn btn-success bg-gradient btn-sm">Move to Sent Quotations</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- View Modal -->
+
+
+<div class="modal fade" id="view-modal" tabindex="-1" aria-labelledby="exampleModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="exampleModalLabel">Project Enquiry: S002</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body px-3">
+      <form>
+          <div class="mb-3 d-flex justify-content-between w-100">
+            <label for="" class="col-form-label">Company Name:</label>
+            <input type="text" class="form-control custom-input-size" id="" value="Pressure Vessel design Tank" readonly>
+          </div>
+          <div class="mb-3 d-flex justify-content-between w-100">
+          <label for="" class="col-form-label">Contact Name:</label>
+          <input type="text" class="form-control custom-input-size" id="" value="John Hills" >
+        </div>
+        <div class="mb-3 d-flex justify-content-between w-100">
+          <label for="" class="col-form-label">Contact Email:</label>
+          <input type="text" class="form-control custom-input-size" id="" value="johnabc@gmail.com">
+        </div>
+        <div class="mb-3 d-flex justify-content-between w-100">
+          <label for="" class="col-form-label">Company Address:</label>
+          <input type="text" class="form-control custom-input-size" id="" value="789 Silicon Valley, Innovation Park" readonly  >
+        </div>
+        <div class="mb-3 d-flex justify-content-between w-100">
+          <label for="" class="col-form-label">Phone:</label>
+          <input type="text" class="form-control custom-input-size" id="" value="8920168775">
+        </div>
+        <div class="mb-3 d-flex justify-content-between w-100">
+          <label for="" class="col-form-label">Quotation Sent Date:</label>
+          <input type="date" class="form-control custom-input-size" id="" value="2025-12-13">
+        </div>
+          <div class="mb-3 d-flex justify-content-between w-100">
+            <label for="" class="col-form-label">Quotation Amount:</label>
+            <input type="text" class="form-control custom-input-size" id="" value="$1234">
+          </div>
+          <div class="mb-3 d-flex justify-content-between w-100">
+          <label for="" class="col-form-label">Enquiry Details:</label>
+
+           <textarea class="form-control custom-input-size" name="" id="">Lorem ipsum dolor sit amet consectetur adipisicing elit. Cum suscipit adipisci obcaecati excepturi quae ea eveniet, ex temporibus velit consectetur, magni ipsa delectus corrupti voluptas officiis?"</textarea>  
+          </div>
+          <div class="mb-3 d-flex justify-content-between w-100 col-form-label">
+          <label for="" class="col-form-label">Engineer:</label>
+          <input type="text" class="form-control custom-input-size" id="" value="George">
+
+
+          </div>
+          <div class=" d-flex justify-content-between w-100">
+            <label for="" class="col-form-label">Comments:</label>
+            <textarea class="form-control custom-input-size" name="" id="">Lorem ipsum dolor sit amet consectetur adipisicing elit. Cum suscipit adipisci obcaecati excepturi quae ea eveniet, ex temporibus velit consectetur, magni ipsa delectus corrupti voluptas officiis?"</textarea>
+
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary bg-gradient btn-sm" data-bs-dismiss="modal">Close</button>
+        <button type="button" class="btn btn-success bg-gradient btn-sm">Update Details</button>
+        <!-- <button type="button" class="btn btn-info bg-gradient btn-sm">Move to Sent Quotations</button> -->
+
+      </div>
+    </div>
+  </div>
+</div>
+
+
+
+
+
+
+<script>
+    // Fetch data and populate the table with debugging
+    fetch('./fetch_project_records.php')
+        .then(response => response.json())
+        .then(data => {
+            console.log("API Response Data Type:", typeof data); // Should be 'object' or 'array'
+            console.log("API Response:", data); // Check the data format
+
+            const tableBody = document.querySelector('#customer-table tbody');
+            tableBody.innerHTML = ''; // Clear table
+
+            if (!Array.isArray(data) || data.length === 0) {
+                tableBody.innerHTML = "<tr><td colspan='10'>No data available</td></tr>";
+                return;
+            }
+
+            data.forEach(row => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                   
+                    <td class="text-left align-middle px-3">${row.sales_id}</td>
+
+                                        <td class="text-left align-middle px-3">${row.company_name || 'N/A'}</td>
+                                                             <td class="text-left align-middle ">${row.client_name || 'N/A'}</td>
+                      <td class="text-left align-middle ">${row.client}</td>
+
+                    <td class="text-left align-middle ">${row.client_contact || 'N/A'}</td>
+                       <td class="text-left align-middle">${row.project_name || 'N/A'}</td>
+                    
+                    <td class="text-left align-middle ">${row.quote_sent_date || 'N/A'}</td>
+
+                                        <td class="text-left align-middle ">${row.timestamp || 'N/A'}</td>
+
+                    <td class="text-left align-middle "><textarea class="comments-form">${row.comments || 'N/A'} </textarea></td>
+                    <td class="align-middle ">
+                    <div class="d-flex">
+                     <button class="save-btn" >  Save </button>
+                     <button class="quotation-btn ml-2" data-bs-toggle="modal" data-bs-target="#quotation_sent_modal">  View</button>
+                        <button class="quotation-btn ml-2" data-bs-toggle="modal" data-bs-target="#quotation_sent_modal">  Quotation Sent </button>
+                    </div>
+
+                    </td>
+                `;
+                tableBody.appendChild(tr);
+
+
+            });
+
+        })
+        .catch(error => console.error('Error fetching data:', error));
+
+
+
+
+
+
+//updation of comment section .
+document.addEventListener("click", function (event) {
+    if (event.target.classList.contains("save-btn")) {
+        const button = event.target;
+        const salesId = button.getAttribute("data-id");
+        const commentBox = button.closest("tr").querySelector(".comments-form");
+        const newComment = commentBox.value.trim();
+
+        if (newComment === "") {
+            alert("Comment cannot be empty!");
+            return;
+        }
+
+        // Send AJAX request to update_project_comment.php
+        fetch('update_project_comment.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: `sales_id=${salesId}&comments=${encodeURIComponent(newComment)}`
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert("Comment updated successfully!");
+
+                setTimeout(() => {
+                    location.reload();
+                }, 1000);
+            } else {
+                alert("Error updating comment.");
+            }
+        })
+        .catch(error => console.error("Error:", error));
+    }
+});
+
+
+
+
+document.addEventListener("DOMContentLoaded", function () {
+    document.querySelectorAll(".save-btn").forEach(button => {
+        button.addEventListener("click", function () {
+            const salesId = this.getAttribute("data-id");
+            const commentBox = this.closest("tr").querySelector(".comments-form");
+            const newComment = commentBox.value.trim();
+
+            if (newComment === "") {
+                alert("Comment cannot be empty!");
+                return;
+            }
+
+            // Send AJAX request to update_comment.php
+            fetch('update_project_comment.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: `sales_id=${salesId}&comments=${encodeURIComponent(newComment)}`
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert("Comment updated successfully!");
+                } else {
+                    alert("Error updating comment.");
+                }
+            })
+            .catch(error => console.error("Error:", error));
+        });
+    });
+});
+
+
+
+
+</script>
+
+
+</html>
+

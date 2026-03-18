@@ -1,0 +1,34 @@
+.h {
+    color: #b96565;
+    color: #8198e3;
+    color: #7ab491;
+    color: #bdb87e;
+    color: #9f9e9e;
+
+    color: #e6e6e6;
+    color: orangered;
+    color: orange;
+    color: #dc3914;
+    color: rgba(12, 168, 168, 0.306) ; 
+    color: gray ;
+    color: rgb(245, 245, 245) ;
+    color: #305595cd; 
+
+
+
+    /* border: 4px solid <?php if ($subproject['sub_end_date'] == null) {
+        echo '#e6e6e6';
+    } else if ($subproject['sub_end_date'] >= $todays_date) {
+        echo 'darkgreen';
+    } else if ($subproject['sub_end_date'] < $todays_date) {
+        echo 'crimson';
+    } ?>;  */
+
+
+
+    /* https://toppng.com/uploads/preview/large-red-circle-emoji-stickers-smiley-red-smileys-red-circle-emoji-11563262156tb2trwxkhj.png */
+
+
+
+
+}
